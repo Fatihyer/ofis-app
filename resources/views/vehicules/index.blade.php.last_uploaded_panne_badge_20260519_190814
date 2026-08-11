@@ -1,0 +1,390 @@
+@extends('layouts.app')
+
+@section('style')
+<style>
+.date-ok   { color: #198754; font-weight: 600; }
+.date-warn { color: #fd7e14; font-weight: 600; }
+.date-exp  { color: #dc3545; font-weight: 600; }
+.date-none { color: #aaa; }
+.panne-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+.panne-badge.yes {
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+.panne-badge.no {
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+</style>
+@endsection
+
+@section('content')
+
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">Vehicule</h3>
+                <button id="filterSalesButton" class="btn btn-secondary mb-3">Hide Sales Vehicles</button>
+                <input type="text" id="searchInput" class="form-control mb-3" placeholder="Search Vehicule Name">
+
+                <div class="table-responsive">    
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Nom</th>
+                                <th scope="col">Plaque</th>
+                                <th scope="col">Modèle</th>
+                                <th scope="col">Cap.</th>
+                                <th scope="col">C.T.</th>
+                                <th scope="col">Assurance</th>
+                                <th scope="col">E.A.D.</th>
+                                <th scope="col">Ext.</th>
+                                <th scope="col">Lim.</th>
+                                <th scope="col">Tach.</th>
+                                <th scope="col">Vid.</th>
+                                <th scope="col">Lic.</th>
+                                <th scope="col">Sales/Réel</th>
+                                <th scope="col">En panne</th>
+                                <th scope="col">Hermes</th>
+                                <th scope="col">Rmq</th>
+                                <th>#</th>
+                                <th>#</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($vehicules as $vehicule)
+                            @php
+                                $today = \Carbon\Carbon::today();
+                                $warn  = \Carbon\Carbon::today()->addDays(30);
+                                $dateFields = [
+                                    'control'  => $vehicule->control,
+                                    'sigorta'  => $vehicule->sigorta,
+                                    'ead_date' => $vehicule->ead_date,
+                                    'ext_date' => $vehicule->ext_date,
+                                    'lim_date' => $vehicule->lim_date,
+                                    'tach_date'=> $vehicule->tach_date,
+                                    'vid_date' => $vehicule->vid_date,
+                                ];
+                                $fmt = function($val) use ($today, $warn) {
+                                    if (!$val) return '<span class="date-none">-</span>';
+                                    $d = \Carbon\Carbon::parse($val);
+                                    $cls = $d->lt($today) ? 'date-exp' : ($d->lt($warn) ? 'date-warn' : 'date-ok');
+                                    return '<span class="'.$cls.'">'.$d->format('d/m/Y').'</span>';
+                                };
+                            @endphp
+                            <tr class="vehicule-row" data-sales="{{ $vehicule->sales ? 'yes' : 'no' }}">
+                                <td><a href="{{ route('vehicules.show', $vehicule->id) }}">{{ $vehicule->name }}</a></td>
+                                <td>{{ $vehicule->plaka }}</td>
+                                <td>{{ $vehicule->yil }}</td>
+                                <td>{{ $vehicule->capacity }}</td>
+                                <td>{!! $vehicule->real ? $fmt($vehicule->control) : '<span class="date-none">-</span>' !!}</td>
+                                <td>{!! $vehicule->real ? $fmt($vehicule->sigorta) : '<span class="date-none">-</span>' !!}</td>
+                                <td>{!! $fmt($vehicule->ead_date) !!}</td>
+                                <td>{!! $fmt($vehicule->ext_date) !!}</td>
+                                <td>{!! $fmt($vehicule->lim_date) !!}</td>
+                                <td>{!! $fmt($vehicule->tach_date) !!}</td>
+                                <td>{!! $fmt($vehicule->vid_date) !!}</td>
+                                <td>{{ $vehicule->licence_count ?? '-' }}</td>
+                                <td>{{ $vehicule->sales ? 'Oui' : 'Non' }}/{{ $vehicule->real ? 'Oui' : 'Non' }}</td>
+                                <td>
+                                    @if ($vehicule->enpanne)
+                                        <span class="panne-badge yes"><i class="fas fa-exclamation-triangle"></i> Oui</span>
+                                    @else
+                                        <span class="panne-badge no"><i class="fas fa-check-circle"></i> Non</span>
+                                    @endif
+                                </td>
+                                <td>{{ $vehicule->hermes_uid }}</td>
+                                <td style="max-width:150px;white-space:normal;font-size:.85em;">{{ $vehicule->remarques }}</td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-primary"
+                                        data-bs-toggle="modal"
+                                        data-id="{{ $vehicule->id }}"
+                                        data-plaka="{{ $vehicule->plaka }}"
+                                        data-yil="{{ $vehicule->yil }}"
+                                        data-name="{{ $vehicule->name }}"
+                                        data-hermes="{{ $vehicule->hermes_uid }}"
+                                        data-capacity="{{ $vehicule->capacity }}"
+                                        data-enpanne="{{ $vehicule->enpanne }}"
+                                        data-control="{{ $vehicule->control ? \Carbon\Carbon::parse($vehicule->control)->format('Y-m-d') : '' }}"
+                                        data-sigorta="{{ $vehicule->sigorta ? \Carbon\Carbon::parse($vehicule->sigorta)->format('Y-m-d') : '' }}"
+                                        data-ead="{{ $vehicule->ead_date ? \Carbon\Carbon::parse($vehicule->ead_date)->format('Y-m-d') : '' }}"
+                                        data-ext="{{ $vehicule->ext_date ? \Carbon\Carbon::parse($vehicule->ext_date)->format('Y-m-d') : '' }}"
+                                        data-lim="{{ $vehicule->lim_date ? \Carbon\Carbon::parse($vehicule->lim_date)->format('Y-m-d') : '' }}"
+                                        data-tach="{{ $vehicule->tach_date ? \Carbon\Carbon::parse($vehicule->tach_date)->format('Y-m-d') : '' }}"
+                                        data-vid="{{ $vehicule->vid_date ? \Carbon\Carbon::parse($vehicule->vid_date)->format('Y-m-d') : '' }}"
+                                        data-licence="{{ $vehicule->licence_count }}"
+                                        data-remarques="{{ $vehicule->remarques }}"
+                                        data-sales="{{ $vehicule->sales }}"
+                                        data-real="{{ $vehicule->real }}"
+                                        data-bs-target="#editModal">
+                                        Edit
+                                    </button>
+                                </td>
+                                <td>
+                                    <form class="deleteinvoice" action="{{ route('vehicules.destroy', $vehicule->id) }}" method="POST">
+                                        {{ method_field('DELETE') }}
+                                        {{ csrf_field() }}
+                                        <button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModalLong">
+                        Add New Vehicule
+                    </button>
+                    <a href="{{ route('vehicle_maintenance.index') }}" class="btn btn-secondary mb-3">Maintenance Record</a>
+                </div>
+            </div>
+        </div>
+    </div> 
+</div>
+
+<!-- Modal for adding new vehicle -->
+<div class="modal fade" id="exampleModalLong" tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLongTitle">New Vehicule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {{ Form::open(array('route' => 'vehicules.store')) }}
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-12">
+                        {{ Form::label('name', 'Nom') }}
+                        {{ Form::text('name', null, ['class' => 'form-control', 'required' => 'required', 'placeholder' => 'Nom']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('plaka', 'Immatriculation') }}
+                        {{ Form::text('plaka', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('yil', 'Modèle') }}
+                        {{ Form::text('yil', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('capacity', 'Capacité') }}
+                        {{ Form::selectRange('capacity', 1, 60, '', ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('licence_count', 'Licences (nb)') }}
+                        {{ Form::number('licence_count', null, ['class' => 'form-control', 'min' => 0]) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('control', 'C.T.') }}
+                        {{ Form::date('control', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('sigorta', 'Assurance') }}
+                        {{ Form::date('sigorta', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('ead_date', 'E.A.D.') }}
+                        {{ Form::date('ead_date', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('ext_date', 'Extincteur') }}
+                        {{ Form::date('ext_date', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('lim_date', 'Limiteur') }}
+                        {{ Form::date('lim_date', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('tach_date', 'Tachygraphe') }}
+                        {{ Form::date('tach_date', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('vid_date', 'Vidange/Visite') }}
+                        {{ Form::date('vid_date', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        {{ Form::label('hermes_uid', 'Hermes ID') }}
+                        {{ Form::text('hermes_uid', null, ['class' => 'form-control']) }}
+                    </div>
+                    <div class="col-12">
+                        {{ Form::label('remarques', 'Remarques') }}
+                        {{ Form::textarea('remarques', null, ['class' => 'form-control', 'rows' => 2]) }}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                {{ Form::submit('Ajouter', ['class' => 'btn btn-primary']) }}
+            </div>
+            {{ Form::close() }}
+        </div>
+    </div>
+</div>
+
+<!-- Modal for editing vehicle -->
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Edit Vehicule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {{ Form::open(['route' => 'vehicule.guncel', 'class' => 'form', 'name' => 'edit']) }}
+            <div class="modal-body">
+                {{ Form::hidden('id', '', ['id' => 'data-id']) }}
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label>Nom</label>
+                        {{ Form::text('name', '', ['id' => 'data-name', 'class' => 'form-control']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Immatriculation</label>
+                        {{ Form::text('plaka', '', ['class' => 'form-control', 'id' => 'data-plaka']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Modèle</label>
+                        {{ Form::text('yil', '', ['class' => 'form-control', 'id' => 'data-yil']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Capacité</label>
+                        {{ Form::selectRange('capacity', 1, 60, '', ['class' => 'form-control', 'id' => 'data-capacity']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Licences (nb)</label>
+                        {{ Form::number('licence_count', '', ['class' => 'form-control', 'id' => 'data-licence', 'min' => 0]) }}
+                    </div>
+                    <div class="col-6">
+                        <label>C.T.</label>
+                        {{ Form::date('control', '', ['class' => 'form-control', 'id' => 'data-control']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Assurance</label>
+                        {{ Form::date('sigorta', '', ['class' => 'form-control', 'id' => 'data-sigorta']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>E.A.D.</label>
+                        {{ Form::date('ead_date', '', ['class' => 'form-control', 'id' => 'data-ead']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Extincteur</label>
+                        {{ Form::date('ext_date', '', ['class' => 'form-control', 'id' => 'data-ext']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Limiteur</label>
+                        {{ Form::date('lim_date', '', ['class' => 'form-control', 'id' => 'data-lim']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Tachygraphe</label>
+                        {{ Form::date('tach_date', '', ['class' => 'form-control', 'id' => 'data-tach']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Vidange/Visite</label>
+                        {{ Form::date('vid_date', '', ['class' => 'form-control', 'id' => 'data-vid']) }}
+                    </div>
+                    <div class="col-6">
+                        <label>Hermes ID</label>
+                        {{ Form::text('hermes_uid', '', ['class' => 'form-control', 'id' => 'data-hermes']) }}
+                    </div>
+                    <div class="col-12">
+                        <label>Remarques</label>
+                        {{ Form::textarea('remarques', '', ['class' => 'form-control', 'id' => 'data-remarques', 'rows' => 2]) }}
+                    </div>
+                    <div class="col-4">
+                        <div class="form-check mt-2">
+                            {{ Form::checkbox('real', '1', false, ['class' => 'form-check-input', 'id' => 'data-real']) }}
+                            <label class="form-check-label" for="data-real">Réel</label>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="form-check mt-2">
+                            {{ Form::checkbox('sales', '1', false, ['class' => 'form-check-input', 'id' => 'data-sales']) }}
+                            <label class="form-check-label" for="data-sales">Sales</label>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="form-check mt-2">
+                            {{ Form::checkbox('enpanne', '1', false, ['class' => 'form-check-input', 'id' => 'data-enpanne']) }}
+                            <label class="form-check-label" for="data-enpanne">En panne</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                {{ Form::submit('Enregistrer', ['class' => 'btn btn-primary']) }}
+            </div>
+            {{ Form::close() }}
+        </div>
+    </div>
+</div>
+
+@endsection
+
+@section('footer')
+<script>
+    $('#editModal').on('show.bs.modal', function (event) {
+        var btn = $(event.relatedTarget);
+        var modal = $(this);
+        modal.find('.modal-title').text('Edit ' + btn.data('name'));
+        modal.find('#data-id').val(btn.data('id'));
+        modal.find('#data-name').val(btn.data('name'));
+        modal.find('#data-capacity').val(btn.data('capacity'));
+        modal.find('#data-plaka').val(btn.data('plaka'));
+        modal.find('#data-yil').val(btn.data('yil'));
+        modal.find('#data-hermes').val(btn.data('hermes'));
+        modal.find('#data-control').val(btn.data('control'));
+        modal.find('#data-sigorta').val(btn.data('sigorta'));
+        modal.find('#data-ead').val(btn.data('ead'));
+        modal.find('#data-ext').val(btn.data('ext'));
+        modal.find('#data-lim').val(btn.data('lim'));
+        modal.find('#data-tach').val(btn.data('tach'));
+        modal.find('#data-vid').val(btn.data('vid'));
+        modal.find('#data-licence').val(btn.data('licence'));
+        modal.find('#data-remarques').val(btn.data('remarques'));
+        modal.find('#data-sales').prop('checked', !!parseInt(btn.data('sales')));
+        modal.find('#data-real').prop('checked', !!parseInt(btn.data('real')));
+        modal.find('#data-enpanne').prop('checked', !!parseInt(btn.data('enpanne')));
+    });
+
+    document.getElementById('filterSalesButton').addEventListener('click', function() {
+        var rows = document.querySelectorAll('.vehicule-row');
+        rows.forEach(function(row) {
+            if (row.dataset.sales === 'yes') {
+                row.style.display = (row.style.display === 'none') ? '' : 'none';
+            }
+        });
+    });
+
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+    var input = this.value.toLowerCase();
+    var rows = document.querySelectorAll('.vehicule-row');
+
+    rows.forEach(function(row) {
+        var name = row.querySelector('td a').textContent.toLowerCase();
+        if (name.includes(input)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+</script>
+@endsection

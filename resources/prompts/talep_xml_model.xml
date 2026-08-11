@@ -1,0 +1,32 @@
+<demande>
+  <date_demande>YYYY-MM-DDTHH:MM</date_demande>
+  <talep_kanali>Mail</talep_kanali>
+  <country>Pays du client</country>
+  <customer_name>Nom du client</customer_name>
+  <customer_phone>Telephone</customer_phone>
+  <customer_email>email@example.com</customer_email>
+  <total_pax>1</total_pax>
+  <prix_propose>0.00</prix_propose>
+  <prix_communique>0.00</prix_communique>
+  <currency>EUR</currency>
+  <konfirme_durumu>En attente</konfirme_durumu>
+  <uzun_mesaj>Message original nettoye</uzun_mesaj>
+  <internal_notes>Notes internes</internal_notes>
+  <operations>
+    <operation>
+      <date_operation>YYYY-MM-DD</date_operation>
+      <start_time>HH:MM</start_time>
+      <end_time>HH:MM</end_time>
+      <pax>1</pax>
+      <pickup_location>Adresse de depart</pickup_location>
+      <waypoints>
+        <waypoint>Adresse etape optionnelle</waypoint>
+      </waypoints>
+      <dropoff_location>Adresse d'arrivee</dropoff_location>
+      <service_type>Type de service</service_type>
+      <vehicle_type>Vehicule</vehicle_type>
+      <route_description>Description courte</route_description>
+      <notes>Notes operation</notes>
+    </operation>
+  </operations>
+</demande>
