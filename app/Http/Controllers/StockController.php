@@ -52,7 +52,7 @@ class StockController extends Controller
                 COALESCE(SUM(CASE WHEN affects_stock = 1 AND movement_type = 'adjust' THEN adet ELSE 0 END),0) as stock_adjust,
                 COALESCE(SUM(buy_price),0) as total_buy,
                 COALESCE(SUM(sell_price),0) as total_sell")
-            ->when(!empty($managedProductIds), fn ($q) => $q->whereIn('urun_id', $managedProductIds))
+            ->when(!$productId && !empty($managedProductIds), fn ($q) => $q->whereIn('urun_id', $managedProductIds))
             ->when($type === 'bulk', fn ($q) => $q->whereIn('urun_id', $bulkProductIds))
             ->when($type === 'ondemand', fn ($q) => $q->whereIn('urun_id', $onDemandProductIds))
             ->when($productId, fn ($q) => $q->where('urun_id', $productId))
@@ -88,7 +88,15 @@ class StockController extends Controller
         $summary['stock_remaining'] = $summary['stock_in'] + $summary['stock_adjust'] - $summary['stock_out'];
         $summary['margin'] = $summary['total_sell'] - $summary['total_buy'];
 
-        $products = Acente::whereIn('id', $managedProductIds)
+        $movementProductIds = Stock::query()
+            ->whereNotNull('urun_id')
+            ->distinct()
+            ->pluck('urun_id')
+            ->filter()
+            ->values()
+            ->all();
+
+        $products = Acente::whereIn('id', array_unique(array_merge($managedProductIds, $movementProductIds)))
             ->orderBy('name')
             ->pluck('name', 'id');
 
