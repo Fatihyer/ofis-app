@@ -28,15 +28,18 @@ class StockController extends Controller
         $type = $request->input('type');
         $productId = $request->input('product_id');
         $movementType = $request->input('movement_type');
+        $clientAgencyId = $request->input('client_agency_id');
 
         $query = Stock::with(['urun', 'aAcente', 'bAcente', 'harekets'])
             ->when($type === 'bulk', fn ($q) => $q->whereIn('urun_id', $bulkProductIds))
             ->when($type === 'ondemand', fn ($q) => $q->whereIn('urun_id', $onDemandProductIds))
             ->when($productId, fn ($q) => $q->where('urun_id', $productId))
+            ->when($clientAgencyId, fn ($q) => $q->where('b_acente_id', $clientAgencyId))
             ->when(in_array($movementType, ['in', 'out', 'adjust'], true), fn ($q) => $q->where('movement_type', $movementType))
             ->orderBy('tarih', 'desc')
             ->orderBy('id', 'desc');
 
+        $movementQuantityTotal = (int) (clone $query)->sum('adet');
         $stocks = $query->paginate(50)->appends($request->query());
 
         $productStats = Stock::query()
@@ -50,6 +53,11 @@ class StockController extends Controller
                 COALESCE(SUM(buy_price),0) as total_buy,
                 COALESCE(SUM(sell_price),0) as total_sell")
             ->when(!empty($managedProductIds), fn ($q) => $q->whereIn('urun_id', $managedProductIds))
+            ->when($type === 'bulk', fn ($q) => $q->whereIn('urun_id', $bulkProductIds))
+            ->when($type === 'ondemand', fn ($q) => $q->whereIn('urun_id', $onDemandProductIds))
+            ->when($productId, fn ($q) => $q->where('urun_id', $productId))
+            ->when($clientAgencyId, fn ($q) => $q->where('b_acente_id', $clientAgencyId))
+            ->when(in_array($movementType, ['in', 'out', 'adjust'], true), fn ($q) => $q->where('movement_type', $movementType))
             ->groupBy('urun_id')
             ->orderByDesc('total_qty')
             ->get()
@@ -84,7 +92,93 @@ class StockController extends Controller
             ->orderBy('name')
             ->pluck('name', 'id');
 
-        return view('stocks.index', compact('stocks', 'productStats', 'summary', 'bulkProductIds', 'onDemandProductIds', 'products', 'type', 'productId', 'movementType'));
+        $clientAgencyIds = Stock::query()
+            ->whereNotNull('b_acente_id')
+            ->distinct()
+            ->pluck('b_acente_id')
+            ->filter()
+            ->values();
+
+        $clientAgencies = Acente::whereIn('id', $clientAgencyIds)
+            ->orderBy('name')
+            ->pluck('name', 'id');
+
+        return view('stocks.index', compact('stocks', 'productStats', 'summary', 'movementQuantityTotal', 'bulkProductIds', 'onDemandProductIds', 'products', 'clientAgencies', 'type', 'productId', 'movementType', 'clientAgencyId'));
+    }
+
+    public function export(Request $request)
+    {
+        $bulkProductIds = $this->stockOptionIds('stock_bulk_product_ids', [146, 881]);
+        $onDemandProductIds = $this->stockOptionIds('stock_on_demand_product_ids', [145]);
+        $type = $request->input('type');
+        $productId = $request->input('product_id');
+        $movementType = $request->input('movement_type');
+        $clientAgencyId = $request->input('client_agency_id');
+
+        $query = Stock::with(['urun', 'aAcente', 'bAcente'])
+            ->when($type === 'bulk', fn ($q) => $q->whereIn('urun_id', $bulkProductIds))
+            ->when($type === 'ondemand', fn ($q) => $q->whereIn('urun_id', $onDemandProductIds))
+            ->when($productId, fn ($q) => $q->where('urun_id', $productId))
+            ->when($clientAgencyId, fn ($q) => $q->where('b_acente_id', $clientAgencyId))
+            ->when(in_array($movementType, ['in', 'out', 'adjust'], true), fn ($q) => $q->where('movement_type', $movementType))
+            ->orderBy('tarih', 'desc')
+            ->orderBy('id', 'desc');
+
+        $quantityTotal = (int) (clone $query)->sum('adet');
+        $filename = 'stocks_' . now()->format('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($query, $bulkProductIds, $onDemandProductIds, $quantityTotal) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                '#',
+                'Date',
+                'Produit',
+                'Mouvement',
+                'Mode',
+                'Quantité',
+                'Stock',
+                'Fournisseur',
+                'Client / agence',
+                'Achat',
+                'Vente',
+                'Marge',
+                'Dossier',
+                'Description',
+            ], ';');
+
+            $query->chunk(500, function ($stocks) use ($handle, $bulkProductIds, $onDemandProductIds) {
+                foreach ($stocks as $stock) {
+                    $buyTotal = (float) $stock->buy_price;
+                    $sellTotal = (float) $stock->sell_price;
+                    $margin = $sellTotal - $buyTotal;
+
+                    fputcsv($handle, [
+                        $stock->id,
+                        $stock->tarih ? \Carbon\Carbon::parse($stock->tarih)->format('d/m/Y') : '',
+                        optional($stock->urun)->name ?: '',
+                        $this->movementExportLabel($stock->movement_type ?? 'out'),
+                        $this->modeExportLabel((int) $stock->urun_id, $bulkProductIds, $onDemandProductIds),
+                        (int) $stock->adet,
+                        $stock->affects_stock ? 'Oui' : 'Non',
+                        optional($stock->aAcente)->name ?: '',
+                        optional($stock->bAcente)->name ?: '',
+                        $this->exportMoney($buyTotal),
+                        $this->exportMoney($sellTotal),
+                        $this->exportMoney($margin),
+                        $stock->post_id ?: '',
+                        $stock->aciklama ?: '',
+                    ], ';');
+                }
+            });
+
+            fwrite($handle, "\n");
+            fputcsv($handle, ['Quantité totale', $quantityTotal], ';');
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     private function stockOptionIds(string $name, array $default): array
@@ -101,6 +195,33 @@ class StockController extends Controller
             ->all();
 
         return empty($ids) ? $default : $ids;
+    }
+
+    private function movementExportLabel(string $type): string
+    {
+        return match ($type) {
+            'in' => 'Entrée',
+            'adjust' => 'Ajustement',
+            default => 'Sortie',
+        };
+    }
+
+    private function modeExportLabel(int $productId, array $bulkProductIds, array $onDemandProductIds): string
+    {
+        if (in_array($productId, $bulkProductIds, true)) {
+            return 'Stock suivi';
+        }
+
+        if (in_array($productId, $onDemandProductIds, true)) {
+            return 'À la demande';
+        }
+
+        return 'Autre';
+    }
+
+    private function exportMoney(float $amount): string
+    {
+        return number_format($amount, 2, ',', '');
     }
 
     /* =========================

@@ -16,7 +16,10 @@ $movementLabel=fn($type)=>match($type){'in'=>['class'=>'move-in','label'=>'Entr�
 <div class="stock-page">
   <div class="stock-header">
     <div><h1>Billetterie & stock</h1><small>Bateaux Mouches et Bateaux Parisiens en stock réel · Disneyland à la demande</small></div>
-    <a href="{{ route('stocks.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nouveau mouvement</a>
+    <div class="d-flex flex-wrap" style="gap:8px;">
+      <a href="{{ route('stocks.export', request()->query()) }}" class="btn btn-outline-success btn-sm"><i class="fas fa-file-excel"></i> Export Excel</a>
+      <a href="{{ route('stocks.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nouveau mouvement</a>
+    </div>
   </div>
 
   <div class="stock-stats">
@@ -34,7 +37,8 @@ $movementLabel=fn($type)=>match($type){'in'=>['class'=>'move-in','label'=>'Entr�
         <select name="type" class="form-control form-control-sm" onchange="this.form.submit()" style="width:170px"><option value="">Tous les modes</option><option value="bulk" {{ $type==='bulk'?'selected':'' }}>Stock suivi</option><option value="ondemand" {{ $type==='ondemand'?'selected':'' }}>À la demande</option></select>
         <select name="movement_type" class="form-control form-control-sm" onchange="this.form.submit()" style="width:170px"><option value="">Tous mouvements</option><option value="in" {{ $movementType==='in'?'selected':'' }}>Entrées</option><option value="out" {{ $movementType==='out'?'selected':'' }}>Sorties</option><option value="adjust" {{ $movementType==='adjust'?'selected':'' }}>Ajustements</option></select>
         <select name="product_id" class="form-control form-control-sm" onchange="this.form.submit()" style="width:220px"><option value="">Tous les produits</option>@foreach($products as $id=>$name)<option value="{{ $id }}" {{ (string)$productId===(string)$id?'selected':'' }}>{{ $name }}</option>@endforeach</select>
-        @if($type||$productId||$movementType)<a href="{{ route('stocks.index') }}" class="btn btn-outline-secondary btn-sm">Réinitialiser</a>@endif
+        <select name="client_agency_id" class="form-control form-control-sm" onchange="this.form.submit()" style="width:240px"><option value="">Tous clients / agences</option>@foreach($clientAgencies as $id=>$name)<option value="{{ $id }}" {{ (string)$clientAgencyId===(string)$id?'selected':'' }}>{{ $name }}</option>@endforeach</select>
+        @if($type||$productId||$movementType||$clientAgencyId)<a href="{{ route('stocks.index') }}" class="btn btn-outline-secondary btn-sm">Réinitialiser</a>@endif
       </form>
     </div>
     <div class="table-responsive"><table class="table table-sm table-hover mb-0 stock-table"><thead class="table-light"><tr><th>Produit</th><th>Mode</th><th class="text-center">Entrées</th><th class="text-center">Sorties</th><th class="text-center">Ajust.</th><th class="text-center">Stock réel</th><th class="text-center">Mouvements</th><th class="text-right">Marge</th></tr></thead><tbody>
@@ -52,7 +56,11 @@ $movementLabel=fn($type)=>match($type){'in'=>['class'=>'move-in','label'=>'Entr�
         @php $mode=$modeLabel($stock);$movement=$movementLabel($stock->movement_type??'out');$buyTotal=(float)$stock->buy_price;$sellTotal=(float)$stock->sell_price;$margin=$sellTotal-$buyTotal; @endphp
         <tr><td><a href="{{ route('stocks.edit',$stock->id) }}">#{{ $stock->id }}</a></td><td>{{ $stock->tarih ? \Carbon\Carbon::parse($stock->tarih)->format('d/m/Y') : '-' }}</td><td><strong>{{ optional($stock->urun)->name }}</strong>@if($stock->aciklama)<div class="text-muted small">{{ $stock->aciklama }}</div>@endif</td><td><span class="movement-badge {{ $movement['class'] }}">{{ $movement['label'] }}</span></td><td><span class="mode-badge {{ $mode['class'] }}">{{ $mode['label'] }}</span></td><td class="text-center"><strong>{{ $stock->adet }}</strong></td><td class="text-center">{{ $stock->affects_stock ? 'Oui' : 'Non' }}</td><td>@if($stock->a_acente_id)<a href="{{ route('acentes.show',$stock->a_acente_id) }}">{{ optional($stock->aAcente)->name }}</a>@else - @endif</td><td>@if($stock->b_acente_id)<a href="{{ route('acentes.show',$stock->b_acente_id) }}">{{ optional($stock->bAcente)->name }}</a>@else - @endif</td><td class="text-right">{{ $money($buyTotal) }}</td><td class="text-right">{{ $money($sellTotal) }}</td><td class="text-right {{ $margin >= 0 ? 'money-pos' : 'money-neg' }}">{{ $money($margin) }}</td><td>@if($stock->post_id)<a href="{{ route('posts.show',$stock->post_id) }}" class="btn btn-sm btn-outline-secondary">#{{ $stock->post_id }}</a>@else <span class="text-muted">-</span>@endif</td></tr>
       @empty<tr><td colspan="13" class="text-center text-muted py-4">Aucun mouvement.</td></tr>@endforelse
-    </tbody></table></div><div class="p-3">{{ $stocks->links() }}</div>
+    </tbody></table></div>
+    <div class="p-3 d-flex justify-content-between align-items-center flex-wrap" style="gap:8px;">
+      <div class="font-weight-bold">Quantité totale: {{ number_format((int) $movementQuantityTotal, 0, ',', ' ') }}</div>
+      <div>{{ $stocks->links() }}</div>
+    </div>
   </div>
 </div>
 @endsection
