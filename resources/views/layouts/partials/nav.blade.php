@@ -185,10 +185,11 @@
       <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle" href="#" id="fuelDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Carburant</a>
         <div class="dropdown-menu" aria-labelledby="fuelDropdown">
-          <a class="dropdown-item" href="{{ route('fuel.list') }}">Liste carburant</a>
-          <a class="dropdown-item" href="{{ route('fuel.index') }}">Carburant</a>
-          <a class="dropdown-item" href="{{ route('fuel.chart') }}">Graphique carburant</a>
-          <a class="dropdown-item" href="{{ route('fuel.import.form') }}">Import carburant Excel</a>
+          <h6 class="dropdown-header">Gestion carburant</h6>
+          <a class="dropdown-item" href="{{ route('fuel.list') }}">Achats carburant</a>
+          <a class="dropdown-item" href="{{ route('fuel.index') }}">Cartes carburant</a>
+          <a class="dropdown-item" href="{{ route('dkv.index') }}">DKV API / alertes</a>
+          <a class="dropdown-item" href="{{ route('fuel.import.form') }}">Import Excel carburant</a>
         </div>
       </li>
       @endcan
@@ -199,6 +200,15 @@
         <div class="dropdown-menu" aria-labelledby="demandeDropdown">
           <a class="dropdown-item" href="{{route('talepler.index') }}">Paris Via</a>
           <a class="dropdown-item" href="{{ route('cansu.index') }}">Internet</a>
+          @can('whatsapp-leads.view')
+          <a class="dropdown-item" href="{{ route('whatsapp-group-leads.index') }}">WhatsApp iş talepleri</a>
+          @endcan
+          @can('whatsapp-groups.view')
+          <a class="dropdown-item" href="{{ route('whatsapp-groups.index') }}">WhatsApp groupes</a>
+          @endcan
+          @can('invoices.view')
+          <a class="dropdown-item" href="{{ route('tickets.index') }}">Bilet tahsilat takibi</a>
+          @endcan
    
         </div>
       </li>
@@ -210,6 +220,7 @@
         <div class="dropdown-menu" aria-labelledby="HermesDropdown">
           <a class="dropdown-item" href="{{ route('hermes.index') }}">Hermes véhicules</a>
           <a class="dropdown-item" href="{{ route('hermes.resources') }}">Hermes chauffeurs</a>
+        <a class="dropdown-item" href="{{ route('hermes.tickets.index') }}">Contraventions ANTAI</a>
         <a class="dropdown-item" href="{{ route('hermes.fleet.day') }}">Flotte du jour</a>
         <a class="dropdown-item" href="{{ route('hermes.fleet.yesterday') }}">Flotte hier</a>
         <a  class="dropdown-item" href="{{ route('hermes.fleet.db') }}">Base flotte véhicules</a>
@@ -217,13 +228,6 @@
         <a  class="dropdown-item" href="{{ route('hermes.driver_vehicle_daily') }}">Chauffeur-véhicule journalier</a>
         <a class="dropdown-item" href="{{ route('hermes.driver_working_daily') }}">Temps de travail chauffeur</a>
         <a class="dropdown-item" href="{{ route('tachograph.index') }}">Tachograph</a>
-        @can('whatsapp-leads.view')
-        <a class="dropdown-item" href="{{ route('whatsapp-group-leads.index') }}">WhatsApp iş talepleri</a>
-        @endcan
-        @can('whatsapp-groups.view')
-        <a class="dropdown-item" href="{{ route('whatsapp-groups.index') }}">WhatsApp groupes</a>
-        @endcan
-
        
        
                 <a class="dropdown-item" href="{{ route('hermes.drivers.working.daily') }}">Chauffeurs — Journalier</a>

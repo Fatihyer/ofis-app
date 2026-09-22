@@ -50,6 +50,7 @@ use App\Http\Controllers\FuelController;
 use App\Http\Controllers\OtherController;
 use App\Http\Controllers\OfficeHourController;
 use App\Http\Controllers\WhatsAppController;
+use App\Http\Controllers\TicketSaleController;
 use App\Http\Controllers\TalepController;
 use App\Http\Controllers\GmailController;
 use App\Http\Controllers\LanguageController;
@@ -65,6 +66,7 @@ use App\Http\Controllers\FuelBankImportController;
 use App\Http\Controllers\StickyNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HermesController;
+use App\Http\Controllers\HermesTicketController;
 use App\Http\Controllers\TachographController;
 use App\Http\Controllers\GlobalAlertController;
 use App\Http\Controllers\WhatsappInboxController;
@@ -78,6 +80,7 @@ use App\Http\Controllers\DriverConfirmController;
 use App\Http\Controllers\DriverPlanningController;
 use App\Http\Controllers\WhatsAppGroupController;
 use App\Http\Controllers\WhatsAppGroupLeadController;
+use App\Http\Controllers\DkvController;
 
 
 
@@ -136,6 +139,12 @@ Route::get('/hermes/fleet-db', [HermesController::class, 'fleetDbView'])
 
 Route::get('/hermes/driver-vehicle-daily', [HermesController::class, 'driverVehicleDailyView'])
     ->name('hermes.driver_vehicle_daily');
+
+Route::middleware('auth')->prefix('hermes/contraventions')->name('hermes.tickets.')->group(function () {
+    Route::get('/', [HermesTicketController::class, 'index'])->name('index');
+    Route::post('/sync', [HermesTicketController::class, 'sync'])->name('sync');
+    Route::get('/{ticket}', [HermesTicketController::class, 'show'])->name('show');
+});
 
 
 // Notifications
@@ -203,6 +212,7 @@ Route::post('/home/selectAjaxFirma', [AjaxController::class, 'selectAjaxFirma'])
     ->middleware(['web', 'auth']); // Assuming 'web' and 'auth' middleware groups are required
 // Users
 Route::get('/users-online', [UserController::class, 'online'])->name('users.online');
+Route::put('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
 Route::resource('users', UserController::class);
 Route::get('/password/{id}', [UserController::class, 'changepass'])->name('users.pass');
 Route::post('/password', [UserController::class, 'passwordupdate'])->name('users.passwordupdate');
@@ -210,6 +220,8 @@ Route::post('/password', [UserController::class, 'passwordupdate'])->name('users
 // Roles
 Route::put('/roles/{role}/permissions', [RoleController::class, 'updatePermissions'])->name('roles.permissions.update');
 Route::put('/roles/{role}/users', [RoleController::class, 'updateUsers'])->name('roles.users.update');
+Route::get('/roles-users', [RoleController::class, 'users'])->name('roles.users.index');
+Route::put('/roles-permissions-matrix', [RoleController::class, 'updatePermissionMatrix'])->name('roles.permissions.matrix.update');
 Route::resource('roles', RoleController::class);
 
 // Invoices
@@ -408,6 +420,7 @@ Route::post('/bank/import', [BankImportController::class, 'import'])->name('bank
 Route::post('/bank/import/pennylane', [BankImportController::class, 'importFromPennylane'])->name('bank.import.pennylane');
 Route::post('/bank/import/pennylane-mappings', [BankImportController::class, 'savePennylaneMappings'])->name('bank.import.pennylane-mappings');
 Route::delete('/bank/import/delete/{id}', [BankImportController::class, 'destroy'])->name('bank.import.delete');
+Route::post('/bank/import/bulk-addoffset', [BankImportController::class, 'bulkAddoffset'])->name('bank.import.bulk-addoffset');
 Route::get('/bank/import/addoffset/{id}', function () {
     return redirect()->route('bank.import.form')->with('error', 'Session expiree ou ouverture directe du lien. Veuillez utiliser le bouton Creer ecriture depuis la page import bancaire.');
 })->name('bank.import.addoffset.get');
@@ -490,6 +503,7 @@ Route::post('multioffsetsstore', [OffsetController::class, 'multiStore'])->name(
 Route::resource('acentemsgs', AcentemsgController::class);
 
 // Stocks
+Route::get('stocks/export', [StockController::class, 'export'])->name('stocks.export');
 Route::resource('stocks', StockController::class);
 
 // Hotels
@@ -595,12 +609,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/whatsapp/inbox/{message}/ignore', [WhatsappInboxController::class, 'ignore'])->name('whatsapp.inbox.ignore');
 });
 Route::get('/whatsapp-group-leads', [WhatsAppGroupLeadController::class, 'index'])->name('whatsapp-group-leads.index');
+Route::get('/whatsapp-group-leads/{lead}/create-talep', [WhatsAppGroupLeadController::class, 'createTalep'])->name('whatsapp-group-leads.create-talep');
 Route::get('/whatsapp-group-leads/{lead}', [WhatsAppGroupLeadController::class, 'show'])->name('whatsapp-group-leads.show');
 Route::post('/whatsapp-group-leads/{lead}/status', [WhatsAppGroupLeadController::class, 'updateStatus'])->name('whatsapp-group-leads.status');
 Route::post('/api/whatsapp/groups/{group}/send', [WhatsAppGroupLeadController::class, 'sendReply'])
     ->middleware('throttle:10,1')
     ->name('whatsapp-groups.send');
 Route::get('/whatsapp-groups', [WhatsAppGroupController::class, 'index'])->name('whatsapp-groups.index');
+Route::get('/tickets', [TicketSaleController::class, 'index'])->name('tickets.index');
+Route::get('/tickets/{customerKey}', [TicketSaleController::class, 'show'])->name('tickets.show');
 Route::get('/whatsapp-groups/qr', [WhatsAppGroupController::class, 'qr'])->name('whatsapp-groups.qr');
 Route::post('/whatsapp-groups/sync', [WhatsAppGroupController::class, 'sync'])->name('whatsapp-groups.sync');
 Route::put('/whatsapp-groups/{group}', [WhatsAppGroupController::class, 'update'])->name('whatsapp-groups.update');
@@ -645,6 +662,7 @@ Route::delete('/fuel/import/delete/{id}', [FuelController::class, 'destroyexcel'
 
 Route::get('/fuel/import/review', [FuelController::class, 'excelindex'])->name('fuel.import.review');
 Route::post('/fuel/import/save/{id}', [FuelController::class, 'excelstore'])->name('fuel.import.save');
+Route::post('/fuel/import/save-ready', [FuelController::class, 'excelstoreReady'])->name('fuel.import.saveReady');
 
 
 // Fuel Purchase Routes
@@ -662,6 +680,8 @@ Route::get('/fuel-purchases-chart', [FuelController::class, 'fuelPurchasesChart'
 
 Route::get('/fuel/add', [FuelController::class, 'createPurchase'])->name('fuel.createPurchase');
 Route::get('/fuel/monthly-usage', [FuelController::class, 'monthlyFuelUsage'])->name('fuel.monthlyFuelUsage');
+Route::get('/dkv', [DkvController::class, 'index'])->name('dkv.index');
+Route::post('/dkv/sync', [DkvController::class, 'sync'])->name('dkv.sync');
 
 // Talepler için route grubu
 

@@ -31,6 +31,12 @@ class Kernel extends ConsoleKernel
 {
     // Schedule the renamed custom command
     $schedule->command('transfer:call')->everyMinute();
+
+    // Bilet gruplarinin gecmisini tazele, ardindan satis kayitlarini cikar
+    $schedule->command('whatsapp:import-history --group=Bateaux --group=Tahsilat --group="Disney Stok" --group="Bilet Stok" --days=7')
+        ->dailyAt('03:10')
+        ->withoutOverlapping()
+        ->then(fn () => \Illuminate\Support\Facades\Artisan::call('tickets:extract', ['--days' => 30]));
     $schedule->command('backup:clear-logs')->daily()->at('01:00');
     $schedule->command('backup:run')->daily()->at('02:00');
     $schedule->command('google-ads:upload-form-leads --limit=50')
@@ -38,6 +44,12 @@ class Kernel extends ConsoleKernel
         ->withoutOverlapping();
     $schedule->command('gmail:read-requests --accounts=contact,resparis,paris,sales,sales2 --days=7 --limit=100')
         ->everyTwoMinutes()
+        ->withoutOverlapping(10);
+    $schedule->command('dkv:sync --days=7')
+        ->hourly()
+        ->withoutOverlapping(30);
+    $schedule->command('fuel:import-ready')
+        ->everyTenMinutes()
         ->withoutOverlapping(10);
    $schedule->command('hermes:archive-daily')
         ->timezone('Europe/Paris')
@@ -50,6 +62,13 @@ class Kernel extends ConsoleKernel
     $schedule->command('hermes:archive-driver-working-stats')
         ->timezone('Europe/Paris')
         ->dailyAt('23:54');
+    $schedule->command('hermes:sync-tickets')
+        ->timezone('Europe/Paris')
+        ->twiceDaily(6, 18)
+        ->withoutOverlapping(120)
+        ->when(fn () => filled(config('services.hermes_web.username'))
+            && filled(config('services.hermes_web.password'))
+            && trim((string) config('services.hermes_web.password')) !== 'Mot de passe');
     // Remove or comment out any conflicting or redundant schedules
 }
 

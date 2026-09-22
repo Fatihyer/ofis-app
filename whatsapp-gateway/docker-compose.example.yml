@@ -1,0 +1,13 @@
+services:
+  whatsapp-gateway:
+    build: ./whatsapp-gateway
+    restart: unless-stopped
+    env_file:
+      - ./whatsapp-gateway/.env
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - whatsapp_sessions:/app/sessions
+
+volumes:
+  whatsapp_sessions:

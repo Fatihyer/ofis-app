@@ -33,6 +33,18 @@ class WppConnectGroupProvider implements WhatsAppGroupProviderInterface
             ->json();
     }
 
+    public function history(string $groupId, int $limit = 0, ?int $since = null): array
+    {
+        return $this->request()
+            ->timeout((int) config('services.whatsapp_gateway.history_timeout', 300))
+            ->get($this->url('/api/groups/' . $groupId . '/history'), array_filter([
+                'limit' => $limit ?: null,
+                'since' => $since,
+            ]))
+            ->throw()
+            ->json('messages') ?? [];
+    }
+
     private function request()
     {
         return Http::timeout((int) config('services.whatsapp_gateway.timeout', 20))
